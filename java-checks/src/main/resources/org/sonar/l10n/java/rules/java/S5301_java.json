@@ -1,29 +1,25 @@
 {
-  "title": "ActiveMQConnectionFactory should be secured",
+  "title": "\"ActiveMQConnectionFactory\" should not be vulnerable to malicious code deserialization",
   "type": "VULNERABILITY",
   "status": "ready",
   "remediation": {
     "func": "Constant\/Issue",
-    "constantCost": "5min"
+    "constantCost": "30min"
   },
   "tags": [
     "cwe",
-    "owasp-a4"
+    "owasp-a8"
   ],
-  "standards": [
-    "CWE",
-    "OWASP Top Ten"
-  ],
-  "defaultSeverity": "Critical",
+  "defaultSeverity": "Minor",
   "ruleSpecification": "RSPEC-5301",
   "sqKey": "S5301",
   "scope": "Main",
   "securityStandards": {
     "CWE": [
-      611
+      502
     ],
     "OWASP": [
-      "A4"
+      "A8"
     ]
   }
 }

@@ -1,33 +1,26 @@
-<p>An XML External Entity or XSLT External Entity (XXE) vulnerability can occur when a <code>org.apache.activemq.ActiveMQConnectionFactory</code> is created without
-enabling "Secure Processing" or when one is created without disabling external DTDs. If that external entity is hijacked by an attacker it may lead to
-the disclosure of confidential data, denial of service, server side request forgery, port scanning from the perspective of the machine where the
-parser is located, and other system impacts.</p>
-<p>This rule raises an issue when a <code>ActiveMQConnectionFactory</code> is created without either of these settings.</p>
+<p>ActiveMQ can send/receive JMS Object messages (named ObjectMessage in ActiveMQ context) to comply with JMS specification. Internally, ActiveMQ
+relies on Java serialization mechanism for marshaling/unmashaling of the message payload. Deserialization based on data supplied by the user could
+lead to remote code execution attacks, where the structure of the serialized data is changed to modify the behavior of the object being
+unserialized.</p>
+<p>To limit the risk to be victim of such attack, ActiveMQ 5.12.2+ enforces developers to explicitly whitelist packages that can be exchanged using
+ObjectMessages.</p>
 <h2>Noncompliant Code Example</h2>
 <pre>
 ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("tcp://localhost:61616");
-Connection connection = factory.createConnection();
+factory.setTrustAllPackages(true); // Noncompliant
+
+ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("tcp://localhost:61616");
+// no call to factory.setTrustedPackages(...);
 </pre>
 <h2>Compliant Solution</h2>
 <pre>
 ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("tcp://localhost:61616");
-factory.setTrustedPackages(Arrays.asList("org.apache.activemq.test,org.apache.camel.test".split(",")));
-
-Connection connection = factory.createConnection();
-</pre>
-<p>or</p>
-<pre>
-ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("tcp://localhost:61616");
-factory.setTrustAllPackages(false);
-
-Connection connection = factory.createConnection();
+factory.setTrustedPackages(Arrays.asList("org.mypackage1", "org.mypackage2"));
 </pre>
 <h2>See</h2>
-<ul>
-  <li> <a href="http://cwe.mitre.org/data/definitions/611.html">MITRE, CWE-611</a> Improper Restriction of XML External Entity Reference ('XXE') </li>
-  <li> <a href="https://www.owasp.org/index.php/Top_10-2017_A4-XML_External_Entities_(XXE)">OWASP Top 10 2017 Category A4 - XML External Entities</a> </li>
-  <li> From Apache ActiveMQ: <a href="http://activemq.apache.org/security-advisories.data/CVE-2015-5254-announcement.txt">CVE-2015-5254 Announcement</a> </li>
-  <li> From Apache ActiveMQ: <a href="http://activemq.apache.org/objectmessage.html">Feature ObjectMessage</a>
-  </li>
-</ul>
+<p> * <a href="https://www.owasp.org/index.php/Top_10-2017_A8-Insecure_Deserialization">OWASP Top 10 2017 Category A8</a> - Insecure
+Deserialization</p>
+<p> * <a href="https://cwe.mitre.org/data/definitions/502.html">MITRE, CWE-502</a> - Deserialization of Untrusted Data</p>
+<p> * <a href="http://activemq.apache.org/objectmessage.html">ActiveMQ ObjectMessage Security Advisory</a></p>
+<p> * <a href="http://activemq.apache.org/security-advisories.data/CVE-2015-5254-announcement.txt">CVE-2015-5254</a></p>
 

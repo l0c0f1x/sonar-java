@@ -25,10 +25,12 @@ import org.sonar.check.Rule;
 import org.sonar.java.checks.helpers.ConstantUtils;
 import org.sonar.java.checks.methods.AbstractMethodDetection;
 import org.sonar.java.matcher.MethodMatcher;
+import org.sonar.java.matcher.TypeCriteria;
 import org.sonar.java.model.ExpressionUtils;
-import org.sonar.plugins.java.api.JavaFileScanner;
+import org.sonar.java.model.LiteralUtils;
 import org.sonar.plugins.java.api.tree.Arguments;
 import org.sonar.plugins.java.api.tree.BaseTreeVisitor;
+import org.sonar.plugins.java.api.tree.LiteralTree;
 import org.sonar.plugins.java.api.tree.MethodInvocationTree;
 import org.sonar.plugins.java.api.tree.NewClassTree;
 import org.sonar.plugins.java.api.tree.Tree;
@@ -37,7 +39,7 @@ import org.sonar.plugins.java.api.tree.Tree.Kind;
 import static org.sonar.java.matcher.TypeCriteria.subtypeOf;
 
 @Rule(key = "S5301")
-public class XxeActiveMQCheck extends AbstractMethodDetection implements JavaFileScanner {
+public class XxeActiveMQCheck extends AbstractMethodDetection {
   private static final String CONSTRUCTOR = "<init>";
 
   private static final String MQ_CONNECTION_FACTORY_CLASS_NAME = "org.apache.activemq.ActiveMQConnectionFactory";
@@ -68,37 +70,41 @@ public class XxeActiveMQCheck extends AbstractMethodDetection implements JavaFil
 
     private static final MethodMatcher SET_TRUSTED_PACKAGES = MethodMatcher.create()
       .typeDefinition(subtypeOf(MQ_CONNECTION_FACTORY_CLASS_NAME)).name("setTrustedPackages")
-      .withAnyParameters();
+      .addParameter(TypeCriteria.anyType());
 
     private static final MethodMatcher SET_TRUST_ALL_PACKAGES = MethodMatcher.create()
       .typeDefinition(subtypeOf(MQ_CONNECTION_FACTORY_CLASS_NAME)).name("setTrustAllPackages")
       .parameters("boolean");
 
     private boolean hasTrustedPackages = false;
-    private boolean isNullTrustedPackages = false;
-    private boolean hasTrustAllPackages = true;
+    private boolean hasTrustAllPackages = false;
+    private boolean callArgumentsOfSetTrustedPackages = false;
 
     private boolean foundCallsToSecuringMethods() {
-      return (hasTrustedPackages && !isNullTrustedPackages) || !hasTrustAllPackages;
+      return hasTrustedPackages && !hasTrustAllPackages;
     }
 
     @Override
     public void visitMethodInvocation(MethodInvocationTree methodInvocation) {
       Arguments arguments = methodInvocation.arguments();
-
       if (SET_TRUSTED_PACKAGES.matches(methodInvocation)) {
-        if (arguments.get(0).is(Kind.NULL_LITERAL)) {
-          isNullTrustedPackages = true;
-        }
-        hasTrustedPackages = true;
+        hasTrustedPackages |= !arguments.get(0).is(Kind.NULL_LITERAL);
+        callArgumentsOfSetTrustedPackages = true;
+      } else if (SET_TRUST_ALL_PACKAGES.matches(methodInvocation)) {
+        hasTrustAllPackages |= Boolean.TRUE.equals(ConstantUtils.resolveAsBooleanConstant(arguments.get(0)));
       }
-
-      if (SET_TRUST_ALL_PACKAGES.matches(methodInvocation)) {
-        hasTrustAllPackages = ConstantUtils.resolveAsBooleanConstant(arguments.get(0));
-      }
-
       super.visitMethodInvocation(methodInvocation);
+      callArgumentsOfSetTrustedPackages = false;
     }
 
+    @Override
+    public void visitLiteral(LiteralTree tree) {
+      if (callArgumentsOfSetTrustedPackages &&
+        tree.is(Kind.STRING_LITERAL) &&
+        "*".equals(LiteralUtils.trimQuotes(tree.value()))) {
+        hasTrustAllPackages = true;
+      }
+      super.visitLiteral(tree);
+    }
   }
 }
